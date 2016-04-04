@@ -1,0 +1,45 @@
+Linux keskitetty hallinta kotitehtävä 1
+
+Tein harjoituksen sunnuntaina 03.04.2016 kotona omalla tietokoneella. Minulla on käytössä Virtual-
+Box, jonka sisällä on Xubuntu 14.04 LTS.
+
+Koska Xubuntu asennukseni on tuore, niin täytyy asentaa Puppet harjoitusta varten.
+Päivitetään tieto saatavilla olevista paketeista komennolla sudo apt-get update. Sen jälkeen
+voidaan asentaa Puppet komennolla sudo apt-get install puppet.
+
+Loin Puppet:lle oman hakemistorakenteen puppet/modules/ jonka sisällä on testi/manifests/.
+
+Tämän jälkeen loin itselleni moduulin, joka tekee seuraavat asiat:
+-	Lataa ja asentaa ohjelman ”Sweeper” ja varmistaa, että se on tuorein versio
+-	Luo minun käyttäjäni .config –hakemistoon hakemiston ”autostart”
+-	Luo autostart -hakemistoon sweeper.desktop –tiedoston, joka mahdollistaa Sweeper –ohjelman käynnistymisen käyttöjärjestelmän käynnistymisen yhteydessä.
+
+init.pp –tiedoston sisältö:
+
+class testi {
+include testi::install
+}
+
+install.pp –tiedoston sisältö:
+
+class testi::install {
+
+	package { ‘sweeper’:
+		ensure => ‘latest’,
+	
+	}
+
+	file {‘/home/miko/.config/autostart’:
+		ensure => ‘directory’,
+	}
+
+	file {‘/home/miko/.config/autostart/sweeper.desktop’:
+		content => “[Desktop Entry]
+		                   Type=Application
+		                   Name=Sweeper
+		                   Exec=/usr/bin/sweeper
+		                   X-GNOME-Autostart-enabled=true”
+	}
+
+}
+

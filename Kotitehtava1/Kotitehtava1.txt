@@ -7,7 +7,7 @@ Koska Xubuntu asennukseni on tuore, niin täytyy asentaa Puppet harjoitusta vart
 Päivitetään tieto saatavilla olevista paketeista komennolla sudo apt-get update. Sen jälkeen
 voidaan asentaa Puppet komennolla sudo apt-get install puppet.
 
-Loin Puppet:lle oman hakemistorakenteen puppet/modules/ jonka sisällä on testi/manifests/.
+Loin Puppet:lle oman hakemistorakenteen puppet/modules/, jonka sisälle modulia varten testi/manifests/.
 
 Tämän jälkeen loin itselleni moduulin, joka tekee seuraavat asiat:
 -	Lataa ja asentaa ohjelman ”Sweeper” ja varmistaa, että se on tuorein versio

@@ -175,6 +175,7 @@ otsikko => ’Testisivu’
 
 }
 
+
 Muutetaan tyyppi.pp –tiedostoon seuraavat rivit:
 
 define jeesjees::tyyppi (String $otsikko) {

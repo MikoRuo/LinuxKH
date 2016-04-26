@@ -1,0 +1,197 @@
+Tein harjoituksen koulussa 13.04.2016. Käytin harjoitukseen VirtualBox:n versiota 5.0.6 r103037, jonka sisällä on 2 Linux työasemaa(Ubuntu+Xubuntu) ja yksi palvelin(Ubuntu). Kaikki virtuaalikoneet laitettiin Bridged-tilaan, jolloin ei tarvinnut tehdä ylimääräistä säätöä sen eteen, että saisi virtuaalikoneet keskustelemaan toistensa kanssa.
+
+Ensiksi päivitetään palvelimeen tieto siitä, että mistä se saa ladattua Puppet Server:n. Tämä onnistuu komennolla wget https://apt.puppetlabs.com/puppetlabs-release-pc1-trusty.deb.
+
+Tämä lataa paketin puppetlabs-release-pc1-trusty.deb, joka pitää asentaa. Tämä paketti asennetaan komennolla dpkg -i puppetlabs-release-pc1-trusty.deb.  Ennen asennusta kannattaa varmuuden vuoksi ajaa komento sudo apt-get update. Nyt Puppet Server:n asennus onnistuu komennolla sudo apt-get install puppetserver. Puppet Agent:n asennus työasemille onnistuu komennolla sudo apt-get install puppet-agent.
+
+Tällä hetkellä virtuaalikoneiden tiedot ovat:
+- Ubuntu Server:
+* nimi: ubuntuServer, ip-osoite: 172.28.171.201
+- Xubuntu:
+*nimi: VirtualXubuntu, ip-osoite: 172.28.172.153
+- Ubuntu:
+*nimi: VirtualUbuntu64, ip-osoite: 172.28.171.136
+
+Puppet Master ja Slave(t) löytävät toisensa koneiden nimien ja ip-osoitteden avulla. Nyt nämä tiedot pitää määritellä kaikkien koneiden hosts-tiedostoon, koska Puppet käyttää näitä tietoja yhteyksien luomiseen.
+
+Nämä rivit määritellään /etc/hosts -tiedostoon:
+
+172.28.171.201 ubuntuServer.tielab.haaga-helia.fi
+172.28.172.153 VirtualXubuntu.tielab.haaga-helia.fi
+172.28.171.136 VirtualUbuntu64.tielab.haaga-helia.fi
+
+Yhteyksien toimivuus voidaan testata esimerkiksi käyttämällä ping -komentoa. Kävin yksitellen koneilla pingaamassa verkon muita koneita onnistuneesti.
+
+Nyt molempien työasemien /etc/puppetlabs/puppet/puppet.conf -tiedostoon pitää määritellä Master-koneen nimi. Kyseiseen tiedostoon määritellään seuraavat rivit:
+
+[main]
+server = ubuntuServer.tielab.haaga-helia.fi
+
+Käynnistetään PuppetServer uudestaan, jolloin uudet asetukset tulevat voimaan:
+sudo/etc/init.d/puppetserver restart
+
+Käynnistetään agentit työasemissa komennolla:
+sudo /opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true
+
+Nyt kun agentit ovat käynnistyneet ensimmäisen kerran, niin ne lähettävät sertifikaatin allekirjoitus kutsun (Certificate Signing Request ,CSR) Master-koneelle. Pyynnöt voin hyväksyä kommennoilla:
+sudo /opt/puppetlabs/bin/puppet cert sign virtualubuntu64.tielab.haaga-helia.fi
+sudo /opt/puppetlabs/bin/puppet cert sign virtualxbuntu64.tielab.haaga-helia.fi
+
+Nyt agenttien sertifikaatit on allekirjoitettu. Tämä johtaa siihen, että agentit hakevat omatoimisesti asetuksia Master:lta.
+
+Testataan toimivuus luomalla testimoduuli Master:iin.
+
+Master-koneella on hakemisto /etc/puppetlabs/code/environments/production/modules, jonka sisälle tulevat modulit. Ensiksi luodaan hakemistorakenne testi/manifests komennolla mkdir -p testi/manifests.
+
+Sitten manifests -kansion sisälle luodaan kaksi tiedostoa, init.pp ja motd.pp.
+
+Init.pp -tiedoston sisältö:
+
+ class testi {
+    notify { 'Tämä on Puppetin testimoduuli agenteille': }
+ }
+
+
+motd.pp -tiedoston sisältö:
+
+ class testi::motd {
+
+    file { '/etc/motd':
+    owner  => 'root',
+    group  => 'root',
+    mode    => '0644',
+    content => "Puppet testisettiä",
+    }
+
+ }
+
+
+Seuraavaksi luodaan tiedosto site.pp hakemistoon /etc/puppetlabs/code/environments/production/manifests, jonka sisälle tulee:
+
+node fault {
+class { 'testi': }
+class { 'testi::motd':}
+}
+
+Nyt moduulia voi testata työasemille komennolla. sudo /opt/puppetlabs/bin/puppet agent -t.  Jos moduulin ajaminen onnistuu, niin komentorivillä pitäisi näkyä seuraavat rivit:
+Info: Using configured environment 'production'
+Info: Retrieving pluginfacts
+Info: Retrieving plugin
+Info : Caching catalog for virtualxubuntu.tielab.haaga-helia.fi
+Info : Applying configuration version '146136024'
+Notice: Tämä on puppetin testimoduuli agenteille
+Notice: /Stage[main]/Testi/Notify[Tämä on puppetin testimoduuli agenteille]/message: defined 'message' as 'Tämä on puppetin testimoduuli agenteille'
+Notice: Applied catalog in 0.02 seconds
+
+Nyt pitäisi myös löytyä motd -niminen tiedosto hakemistosta /etc/.
+
+Moduulien ajaminen ei onnistunut ekalla kerralla, johtuen SSL-varmenteiden ongelmista. Nämä piti luoda uudestaan.
+
+Puppet Master:lle luodaan varmenne uudestaan seuraavasti:
+
+Ensiksi suljetaan Puppet agent ja server palvelut. sudo puppet resource service puppet ensure=stopped / sudo puppet resource service puppetserver ensure=stopped
+
+Poistetaan Puppet:n SSL-hakemisto kmennolla sudo rm -r /etc/puppetlabs/puppet/ssl
+
+Luodaan uusi CA ajamalla komento sudo puppet cert list -a
+
+Luodaan Masterin varmenteet ajamalla sudo puppet master –no-daemonize –verbose
+
+Palvelut takaisin päälle komennoilla sudo puppet resource service puppet ensure=running / Sudo puppet resource service puppetserver ensure=running
+
+
+Agenteille luodaan varmenteet uudestaan seuraavasti työasemilla:
+
+Suljetaan Puppet Agent palvelu komennolla  sudo puppet resource service puppet ensure=stopped
+
+Tyhjennetään Puppet:n SSL-hakemiston sisältö. Sudo rm -r tiedosto1 tiedosto2 jne.
+
+Käynnistetään Puppet Agent palvelu uudestaan komennolla  sudo puppet resource service puppet ensure=running
+
+Nyt Puppet Agent luo automaattisesti avaimet ja pyytää uutta varmennetta Master:lta. Nämä pyynnöt voidaan hyväksyä komennoilla:
+sudo /opt/puppetlabs/bin/puppet cert sign virtualubuntu64.tielab.haaga-helia.fi
+sudo /opt/puppetlabs/bin/puppet cert sign virtualxbuntu64.tielab.haaga-helia.fi
+
+Nyt modulien pitäisi toimia.
+
+Seuraavaksi luodaan moduuli, joka asentaa opensh-server -paketin haluamalleni työasemalle. Tämä onnistuu lisäämällä seuraavat rivit /etc/puppetlabs/code/environments/production/manifests/site.pp -tiedostoon:
+
+node virtualxubuntu {
+				package ( 'openssh-server':
+				ensure => 'installed',
+				
+				}
+}
+
+Ja toinen moduuli joka luo käyttäjän haluamalleni työasemalle. Ennen tätä täytyy luoda kyseinen käyttäjä palvelimelle komennolla useradd ja antaa sille salasana komennolla passwd. Tein käyttäjän ”jeesjees” ja annoin sille salasanaksi ”K02kLpfk940G”
+
+Jotta salasanaa ei tarvitsisi lähettää selväkielisenä Puppet:ssa, niin /etc/shadow -tiedostosta löytyy jeesjees -käyttäjän salasana salattuna. Tämän tiedon voi kopioida site.pp -tiedostoon komennolla grep jeesjees /etc/shadow/ >> /etc/puppetlabs/code/environments/production/manifests/site.pp. Tästä kyseisestä salasanasta piti jälkeenpäin poistaa edesta ja takaa merkkejä.
+
+node virtualubuntu64 {
+
+	user { 'jeesjees':
+	name => 'Jeesjees',
+	ensure => 'present',
+	password => 'salattu salasana /etc/shadow -tiedostosta',
+	home => '/home/jeesjees',
+	managehome => 'yes',
+	
+	
+
+	}
+
+
+}
+
+Seuraavaksi ajetaan modulit työasemille ajamalla komento  sudo /opt/puppetlabs/bin/puppet agent -t.  Käyttäjän luonnin voi tarkistaa vaikka komennolla less /etc/passwd, ja openssh-server paketin asennuksen komennolla dpkg -s openssh-server.
+
+Seuraavaksi oman tyypin luonti.
+Luodaan seuraavat hakemistot:
+ /etc/puppetlabs/code/environments/production/modules/jeesjees/manifests
+ /etc/puppetlabs/code/environments/production/modules/jeesjees/templates
+
+manifests-hakemistoon tiedosto init.pp -tiedosto jonka sisällä on seuraavat rivit:
+
+class jeesjees {
+}
+
+manifests- hakemistoon tiedosto tyyppi.pp –tiedosto jonka sisällä on seuraavat rivit:
+
+define jeesjees:tyyppi {
+file {”etc/jeesjees”:
+content => 'Testisetti',
+owner => 'root',
+mode => '0664',
+	}
+
+}
+
+Sitten site.pp -tiedostoon seuraavat rivit:
+
+node virtualubuntu64 {
+jeesjees::tyyppi { ’tst’:
+otsikko => ’Testisivu’
+       }
+
+}
+
+Muutetaan tyyppi.pp –tiedostoon seuraavat rivit:
+
+define jeesjees::tyyppi (String $otsikko) {
+content => template(’testi/malli.erb’),
+}
+
+Sitten luodaan jeesjees/templates hakemistoon tiedosto malli.erb, jonka sisälle tulee seuraavat rivit:
+
+<html>
+<body>
+<h1>
+<%= @otsikko %>
+</h1>
+Tämä on Mikon sivu testausta varten
+</body>
+</html>
+
+Ja sitten moduulin ajaminen työasemalta virtualbuntu64 komennolla sudo /opt/puppetlabs/bin/puppet agent -t.  
+
+

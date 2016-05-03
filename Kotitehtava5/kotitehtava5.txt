@@ -1,0 +1,93 @@
+Linux keskitetty hallinta kotitehtävä 5
+
+Tein harjoituksen tiistaina 03.05.2016 kotona omalla tietokoneella. Minulla on käytössä VirtualBox,
+jonka sisällä on Xubuntu 14.04 LTS.
+
+Harjoituksen aiheena on asentaa palvelin Puppet:lla ja määrittää sille defined type. Aion asentaa
+Samban Puppet –moduulilla.
+
+Ensiksi moduulin luominen ja testaus ennen defined type:n määrittämistä. Loin itselleni hakemiston 
+moduulia varten /etc/puppet/modules/palvelin/manifests. Tähän hakemistoon tulevat moduulitiedostot
+Samban asennusta varten: init.pp ja install.pp.
+
+init.pp –tiedoston sisältö:
+
+class palvelin {
+
+include palvelin::install
+
+}
+
+install.pp –tiedoston sisältö:
+
+class palvelin::install {
+
+                    package { ’samba’:
+                                   ensure => ’latest’,
+                    }
+
+                   service { ’samba’:
+                                 ensure => ’running’,
+                                 enable => true,
+                  }
+
+
+}
+
+
+Sitten sama defined type:llä. Tein tästä erillisen moduulin hakemistoon /etc/puppet/modules/samba/manifests/.
+
+
+init.pp –tiedoston sisältö:
+
+class samba {
+
+include samba::install
+
+      define samba_install ($besure) {
+              package {“$title”:
+              ensure => $besure,
+
+       }
+   }
+
+
+define samba_state ($mustbe, $working) {
+              service {“$title”:
+              ensure => $mustbe,
+              enable => $working,
+
+       }
+   }
+
+}
+
+install.pp –tiedoston sisältö:
+
+class samba::install {
+
+               samba_install {‘samba’:
+                    besure => ‘latest’,
+
+            }
+
+                samba_state {‘samba’:
+                    mustbe => ‘running’,
+                    working => ‘true’,
+
+
+
+
+           }
+
+}
+   
+   
+
+
+
+
+
+
+
+

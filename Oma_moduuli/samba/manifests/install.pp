@@ -1,7 +1,7 @@
 class samba::install {
 
-	 package { 'samba':
-	 ensure => 'installed',
+	package { 'samba':
+	ensure => 'installed',
 
 	}
 

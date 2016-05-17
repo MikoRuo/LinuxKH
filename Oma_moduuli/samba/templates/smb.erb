@@ -1,0 +1,15 @@
+[global]
+workgroup = WORKGROUP
+server string = Mikon Samba
+netbios name = maikoussamba
+security = user
+map to guest = bad user
+dns proxy = no
+
+[Anonymous]
+path = /etc/smbtest
+browsable = yes
+writable = yes
+guest ok = yes
+read only = no
+force user = nobody

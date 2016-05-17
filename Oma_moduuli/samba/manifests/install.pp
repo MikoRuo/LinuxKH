@@ -1,17 +1,14 @@
 class samba::install {
 
-	package { 'samba':
+	 package { 'samba':
 	 ensure => 'installed',
 
 	}
 
 	service { 'smbd':
-    ensure => 'running',
-    enable => true,
+    	ensure => 'running',
+    	enable => true,
 
 	}
-
-
-
 
 }
